@@ -1,0 +1,24 @@
+{
+  "appName": { "message": "Storage Relay" },
+  "appDescription": { "message": "安全导出和导入当前标签页的 Cookie 与网页存储。" },
+  "actionTitle": { "message": "管理当前标签页存储" },
+  "popupTitle": { "message": "当前站点存储" },
+  "cookies": { "message": "Cookie" },
+  "localStorage": { "message": "本地存储" },
+  "sessionStorage": { "message": "会话存储" },
+  "export": { "message": "导出" },
+  "import": { "message": "导入" },
+  "openWorkspace": { "message": "打开迁移工作台" },
+  "unsupportedPage": { "message": "扩展无法访问此页面。" },
+  "securityWarning": { "message": "此文件可能包含登录令牌，并可能改变当前会话。" },
+  "merge": { "message": "合并" },
+  "overwrite": { "message": "覆盖匹配项" },
+  "add": { "message": "新增" },
+  "update": { "message": "更新" },
+  "skip": { "message": "跳过" },
+  "error": { "message": "错误" },
+  "apply": { "message": "应用" },
+  "cancel": { "message": "取消" },
+  "downloadReport": { "message": "下载错误报告" }
+}
+

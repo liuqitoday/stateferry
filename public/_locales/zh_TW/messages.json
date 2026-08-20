@@ -1,0 +1,24 @@
+{
+  "appName": { "message": "Storage Relay" },
+  "appDescription": { "message": "安全匯出和匯入目前分頁的 Cookie 與網頁儲存空間。" },
+  "actionTitle": { "message": "管理目前分頁儲存空間" },
+  "popupTitle": { "message": "目前網站儲存空間" },
+  "cookies": { "message": "Cookie" },
+  "localStorage": { "message": "本機儲存空間" },
+  "sessionStorage": { "message": "工作階段儲存空間" },
+  "export": { "message": "匯出" },
+  "import": { "message": "匯入" },
+  "openWorkspace": { "message": "開啟遷移工作區" },
+  "unsupportedPage": { "message": "擴充功能無法存取此頁面。" },
+  "securityWarning": { "message": "此檔案可能包含登入權杖，並可能變更目前工作階段。" },
+  "merge": { "message": "合併" },
+  "overwrite": { "message": "覆寫相符項目" },
+  "add": { "message": "新增" },
+  "update": { "message": "更新" },
+  "skip": { "message": "略過" },
+  "error": { "message": "錯誤" },
+  "apply": { "message": "套用" },
+  "cancel": { "message": "取消" },
+  "downloadReport": { "message": "下載錯誤報告" }
+}
+

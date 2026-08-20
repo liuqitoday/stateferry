@@ -1,0 +1,24 @@
+{
+  "appName": { "message": "Storage Relay" },
+  "appDescription": { "message": "Safely export and import cookies and web storage for the current tab." },
+  "actionTitle": { "message": "Manage current tab storage" },
+  "popupTitle": { "message": "Current site storage" },
+  "cookies": { "message": "Cookies" },
+  "localStorage": { "message": "Local storage" },
+  "sessionStorage": { "message": "Session storage" },
+  "export": { "message": "Export" },
+  "import": { "message": "Import" },
+  "openWorkspace": { "message": "Open migration workspace" },
+  "unsupportedPage": { "message": "This page cannot be accessed by extensions." },
+  "securityWarning": { "message": "This file may contain login tokens and can change your current session." },
+  "merge": { "message": "Merge" },
+  "overwrite": { "message": "Overwrite matching items" },
+  "add": { "message": "Add" },
+  "update": { "message": "Update" },
+  "skip": { "message": "Skip" },
+  "error": { "message": "Error" },
+  "apply": { "message": "Apply" },
+  "cancel": { "message": "Cancel" },
+  "downloadReport": { "message": "Download error report" }
+}
+
