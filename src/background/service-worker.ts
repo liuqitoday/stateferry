@@ -1,28 +1,25 @@
 import type {
   ApplyReport,
   CookieRecord,
+  ItemMutation,
   CurrentSnapshot,
   DiffItem,
   RuntimeError,
   RuntimeResponse,
-  StorageItem,
   TabContext,
 } from '../core/types';
+import { mapCookieToTarget } from '../core/cookie-rules';
+import { applyPageStorage, readPageStorage } from '../page-bridge/storage';
 
 export type RuntimeMessage =
   | { type: 'PING' }
   | { type: 'GET_CONTEXT' }
   | { type: 'GET_SNAPSHOT' }
+  | { type: 'GET_SNAPSHOT_FOR_TAB'; context: TabContext }
   | { type: 'APPLY_PLAN'; context: TabContext; items: DiffItem[] }
   | { type: 'DOWNLOAD_TEXT'; filename: string; text: string; mimeType: string }
+  | { type: 'MUTATE_ITEM'; context: TabContext; mutation: ItemMutation }
   | { type: 'OPEN_MIGRATION'; context: TabContext };
-
-type PageStorageRead = {
-  localStorage: { ok: true; items: StorageItem[] } | { ok: false; error: RuntimeError };
-  sessionStorage: { ok: true; items: StorageItem[] } | { ok: false; error: RuntimeError };
-};
-
-type PageStorageResult = { id: string; ok: true } | { id: string; ok: false; error: RuntimeError };
 
 function runtimeError(code: RuntimeError['code'], message: string, details?: Record<string, unknown>): RuntimeError {
   return { code, message, details };
@@ -79,61 +76,6 @@ function sameTarget(expected: TabContext, actual: TabContext): boolean {
   return expected.tabId === actual.tabId && expected.pageUrl === actual.pageUrl && expected.origin === actual.origin;
 }
 
-function readPageStorage(): PageStorageRead {
-  const read = (storage: Storage): { ok: true; items: StorageItem[] } | { ok: false; error: RuntimeError } => {
-    try {
-      const items: StorageItem[] = [];
-      for (let index = 0; index < storage.length; index += 1) {
-        const key = storage.key(index);
-        if (key !== null) items.push({ key, value: storage.getItem(key) ?? '' });
-      }
-      return { ok: true, items };
-    } catch {
-      return { ok: false, error: runtimeError('STORAGE_READ_FAILED', 'The page storage could not be read.') };
-    }
-  };
-
-  let localStorageResult: PageStorageRead['localStorage'];
-  let sessionStorageResult: PageStorageRead['sessionStorage'];
-  try {
-    localStorageResult = read(window.localStorage);
-  } catch {
-    localStorageResult = { ok: false, error: runtimeError('STORAGE_READ_FAILED', 'Local storage is unavailable on this page.') };
-  }
-  try {
-    sessionStorageResult = read(window.sessionStorage);
-  } catch {
-    sessionStorageResult = { ok: false, error: runtimeError('SESSION_TAB_UNAVAILABLE', 'Session storage is unavailable on this tab.') };
-  }
-  return { localStorage: localStorageResult, sessionStorage: sessionStorageResult };
-}
-
-function applyPageStorage(operations: Array<{
-  id: string;
-  storage: 'localStorage' | 'sessionStorage';
-  operation: 'set' | 'remove';
-  key: string;
-  value?: string;
-}>): PageStorageResult[] {
-  return operations.map((item) => {
-    try {
-      const storage = item.storage === 'localStorage' ? window.localStorage : window.sessionStorage;
-      if (item.operation === 'remove') storage.removeItem(item.key);
-      else storage.setItem(item.key, item.value ?? '');
-      return { id: item.id, ok: true };
-    } catch {
-      return {
-        id: item.id,
-        ok: false,
-        error: {
-          code: item.storage === 'sessionStorage' ? 'SESSION_TAB_UNAVAILABLE' : 'STORAGE_READ_FAILED',
-          message: `Unable to update ${item.storage}.`,
-        },
-      };
-    }
-  });
-}
-
 async function executeOnTab<T>(tabId: number, func: (...args: never[]) => T, args: unknown[] = []): Promise<T> {
   const results = await chrome.scripting.executeScript({
     target: { tabId },
@@ -151,7 +93,16 @@ async function snapshot(context: TabContext): Promise<RuntimeResponse<CurrentSna
     if (!sameTarget(context, actual)) return responseError(runtimeError('TAB_NAVIGATED', 'The page changed. Refresh and try again.'));
 
     const page = await executeOnTab(context.tabId, readPageStorage);
-    const cookies = (await chrome.cookies.getAll({ url: context.pageUrl })) as CookieRecord[];
+    let cookies: CookieRecord[];
+    try {
+      cookies = (await chrome.cookies.getAll({ url: context.pageUrl })) as CookieRecord[];
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Cookie access was denied.';
+      return responseError(runtimeError(
+        message.toLowerCase().includes('permission') ? 'COOKIE_PERMISSION_DENIED' : 'STORAGE_READ_FAILED',
+        message,
+      ));
+    }
     if (!page) return responseError(runtimeError('STORAGE_READ_FAILED', 'The page storage response was empty.'));
     if (!page.localStorage.ok) return responseError(page.localStorage.error);
     if (!page.sessionStorage.ok) return responseError(page.sessionStorage.error);
@@ -161,24 +112,27 @@ async function snapshot(context: TabContext): Promise<RuntimeResponse<CurrentSna
   }
 }
 
-function applyCookieItem(item: DiffItem): Promise<{ id: string; status: 'succeeded' | 'failed'; error?: RuntimeError }> {
-  if (item.type !== 'cookie' || !('name' in item.incoming) || !item.targetUrl) {
+function applyCookieItem(context: TabContext, item: DiffItem): Promise<{ id: string; status: 'succeeded' | 'failed'; error?: RuntimeError }> {
+  if (item.type !== 'cookie' || !('name' in item.incoming)) {
     return Promise.resolve({ id: item.id, status: 'failed', error: runtimeError('COOKIE_CONSTRAINT_INVALID', 'Cookie data is incomplete.') });
   }
-  const cookie = item.incoming;
+  const mapped = mapCookieToTarget(item.incoming, context);
+  if (!mapped.ok) return Promise.resolve({ id: item.id, status: 'failed', error: mapped.error });
+  const cookie = mapped.cookie;
+  const details: chrome.cookies.SetDetails = {
+    url: mapped.url,
+    name: cookie.name,
+    value: cookie.value,
+    path: cookie.path,
+    secure: cookie.secure,
+    httpOnly: cookie.httpOnly,
+    sameSite: cookie.sameSite,
+    ...(cookie.hostOnly ? {} : { domain: cookie.domain }),
+    ...(cookie.session || cookie.expirationDate === undefined ? {} : { expirationDate: cookie.expirationDate }),
+    ...(cookie.partitionKey ? { partitionKey: cookie.partitionKey } : {}),
+  };
   return chrome.cookies
-    .set({
-      url: item.targetUrl,
-      name: cookie.name,
-      value: cookie.value,
-      domain: cookie.domain,
-      path: cookie.path,
-      secure: cookie.secure,
-      httpOnly: cookie.httpOnly,
-      sameSite: cookie.sameSite,
-      expirationDate: cookie.session ? undefined : cookie.expirationDate,
-      partitionKey: cookie.partitionKey,
-    })
+    .set(details)
     .then(() => ({ id: item.id, status: 'succeeded' as const }))
     .catch((error: unknown) => ({
       id: item.id,
@@ -190,6 +144,79 @@ function applyCookieItem(item: DiffItem): Promise<{ id: string; status: 'succeed
     }));
 }
 
+function cookieRemoveDetails(context: TabContext, cookie: CookieRecord): chrome.cookies.CookieDetails {
+  const url = new URL(context.pageUrl);
+  url.pathname = cookie.path || '/';
+  url.search = '';
+  url.hash = '';
+  return {
+    url: url.toString(),
+    name: cookie.name,
+    ...(cookie.storeId ? { storeId: cookie.storeId } : {}),
+    ...(cookie.partitionKey ? { partitionKey: cookie.partitionKey } : {}),
+  } as chrome.cookies.CookieDetails;
+}
+
+async function mutateItem(context: TabContext, mutation: ItemMutation): Promise<RuntimeResponse<{ id: string }>> {
+  const actual = await getContextForTab(context.tabId);
+  if ('code' in actual) return responseError(actual);
+  if (!sameTarget(context, actual)) return responseError(runtimeError('TAB_NAVIGATED', 'The page changed. Refresh and try again.'));
+
+  try {
+    if (mutation.type !== 'cookie') {
+      const id = `${mutation.type}:${mutation.key}`;
+      const results = await executeOnTab(context.tabId, applyPageStorage, [[{
+        id,
+        storage: mutation.type,
+        operation: mutation.operation,
+        key: mutation.key,
+        value: mutation.value,
+      }]]);
+      const result = results?.[0];
+      return result?.ok ? responseData({ id }) : responseError(result?.error ?? runtimeError('STORAGE_READ_FAILED', 'Storage could not be updated.'));
+    }
+
+    const sourceCookie = mutation.operation === 'remove' ? mutation.cookie : (mutation.originalCookie ?? mutation.cookie);
+    if (mutation.operation === 'remove') {
+      await chrome.cookies.remove(cookieRemoveDetails(context, sourceCookie));
+      return responseData({ id: `cookie:${mutation.key}` });
+    }
+
+    if (mutation.originalCookie && cookieIdentityChanged(mutation.originalCookie, mutation.cookie)) {
+      await chrome.cookies.remove(cookieRemoveDetails(context, mutation.originalCookie));
+    }
+    const mapped = mapCookieToTarget(mutation.cookie, context);
+    if (!mapped.ok) return responseError(mapped.error);
+    const cookie = mapped.cookie;
+    await chrome.cookies.set({
+      url: mapped.url,
+      name: cookie.name,
+      value: cookie.value,
+      path: cookie.path,
+      secure: cookie.secure,
+      httpOnly: cookie.httpOnly,
+      sameSite: cookie.sameSite,
+      ...(cookie.hostOnly ? {} : { domain: cookie.domain }),
+      ...(cookie.session || cookie.expirationDate === undefined ? {} : { expirationDate: cookie.expirationDate }),
+      ...(cookie.storeId ? { storeId: cookie.storeId } : {}),
+      ...(cookie.partitionKey ? { partitionKey: cookie.partitionKey } : {}),
+    });
+    return responseData({ id: `cookie:${mutation.cookie.name}` });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The item could not be updated.';
+    return responseError(runtimeError(
+      mutation.type === 'cookie' && message.toLowerCase().includes('permission') ? 'COOKIE_PERMISSION_DENIED' :
+        mutation.type === 'cookie' ? 'COOKIE_CONSTRAINT_INVALID' :
+          mutation.type === 'sessionStorage' ? 'SESSION_TAB_UNAVAILABLE' : 'STORAGE_READ_FAILED',
+      message,
+    ));
+  }
+}
+
+function cookieIdentityChanged(before: CookieRecord, after: CookieRecord): boolean {
+  return before.name !== after.name || before.domain !== after.domain || before.path !== after.path || before.partitionKey?.topLevelSite !== after.partitionKey?.topLevelSite;
+}
+
 async function applyPlan(context: TabContext, items: DiffItem[]): Promise<RuntimeResponse<ApplyReport>> {
   const start = new Date().toISOString();
   const actual = await getContextForTab(context.tabId);
@@ -199,7 +226,11 @@ async function applyPlan(context: TabContext, items: DiffItem[]): Promise<Runtim
   const selected = items.filter((item) => item.status === 'add' || item.status === 'update');
   const results: ApplyReport['results'] = items
     .filter((item) => item.status === 'skip' || item.status === 'error')
-    .map((item) => ({ id: item.id, status: 'skipped' as const, error: item.error }));
+    .map((item) => ({
+      id: item.id,
+      status: item.status === 'error' ? 'failed' as const : 'skipped' as const,
+      error: item.error,
+    }));
 
   const storageItems = selected.filter((item) => item.type !== 'cookie');
   if (storageItems.length > 0) {
@@ -223,7 +254,7 @@ async function applyPlan(context: TabContext, items: DiffItem[]): Promise<Runtim
   }
 
   const cookieItems = selected.filter((item) => item.type === 'cookie');
-  results.push(...(await Promise.all(cookieItems.map(applyCookieItem))));
+  results.push(...(await Promise.all(cookieItems.map((item) => applyCookieItem(context, item)))));
   const finishedAt = new Date().toISOString();
   const counts = results.reduce<ApplyReport['counts']>((acc, result) => {
     acc[result.status] += 1;
@@ -255,10 +286,14 @@ export async function handleRuntimeMessage(message: RuntimeMessage): Promise<Run
         const context = await getActiveContext();
         return 'code' in context ? responseError(context) : snapshot(context);
       }
+      case 'GET_SNAPSHOT_FOR_TAB':
+        return snapshot(message.context);
       case 'APPLY_PLAN':
         return applyPlan(message.context, message.items);
       case 'DOWNLOAD_TEXT':
         return downloadText(message.filename, message.text, message.mimeType);
+      case 'MUTATE_ITEM':
+        return mutateItem(message.context, message.mutation);
       case 'OPEN_MIGRATION': {
         const query = new URLSearchParams({ tabId: String(message.context.tabId), pageUrl: message.context.pageUrl, origin: message.context.origin });
         const tab = await chrome.tabs.create({ url: `${chrome.runtime.getURL('migration.html')}?${query.toString()}` });

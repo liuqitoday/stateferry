@@ -130,6 +130,26 @@ export interface StorageMutation {
   value?: string;
 }
 
+export type ItemMutation =
+  | {
+      type: 'localStorage' | 'sessionStorage';
+      operation: 'set' | 'remove';
+      key: string;
+      value?: string;
+    }
+  | {
+      type: 'cookie';
+      operation: 'set' | 'remove';
+      key: string;
+      cookie: CookieRecord;
+      originalCookie?: CookieRecord;
+    };
+
+export interface MutationRequest {
+  context: TabContext;
+  mutation: ItemMutation;
+}
+
 export interface ApplyItemResult {
   id: string;
   status: 'succeeded' | 'skipped' | 'failed';
@@ -147,4 +167,3 @@ export interface ApplyReport {
     failed: number;
   };
 }
-

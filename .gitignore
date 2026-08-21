@@ -4,4 +4,5 @@ coverage/
 .superpowers/
 *.log
 .DS_Store
-
+/release/
+/.chrome-test-profile/

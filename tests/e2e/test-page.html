@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>StateFerry local fixture</title></head>
+<body>
+  <main>
+    <h1>StateFerry local fixture</h1>
+    <p id="status">Fixture ready</p>
+    <button id="reset" type="button">Reset fixture</button>
+  </main>
+  <script>
+    const values = { local: 'local-fixture-value', session: 'session-fixture-value' };
+    function reset() {
+      document.cookie = 'sf_test_cookie=fixture-cookie; Path=/; Max-Age=3600; SameSite=Lax';
+      localStorage.setItem('sf_local', values.local);
+      sessionStorage.setItem('sf_session', values.session);
+      document.getElementById('status').textContent = 'Fixture reset at ' + new Date().toISOString();
+    }
+    document.getElementById('reset').addEventListener('click', reset);
+    reset();
+  </script>
+</body>
+</html>
