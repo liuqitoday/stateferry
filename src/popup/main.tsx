@@ -1,6 +1,6 @@
 import { StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { downloadText, getCurrentSnapshot, mutateItem, openMigrationPage } from '../background/runtime-client';
+import { downloadText, getCurrentSnapshot, mutateItem, openMigrationPage, requestCookieAccess } from '../background/runtime-client';
 import { createBackup } from '../core/backup-builder';
 import { serializeBackup } from '../core/backup-schema';
 import { cookieIdentity } from '../core/cookie-rules';
@@ -69,11 +69,15 @@ export function Popup() {
   const [editor, setEditor] = useState<EditorState>();
   const [mutationError, setMutationError] = useState<string>();
   const [saving, setSaving] = useState(false);
+  const [requestingCookieAccess, setRequestingCookieAccess] = useState(false);
 
   const refreshSnapshot = async () => {
     try {
       const result = await getCurrentSnapshot();
-      if (result.ok) setSnapshot(result.data);
+      if (result.ok) {
+        setSnapshot(result.data);
+        setError(undefined);
+      }
       else setError(result.error.code === 'UNSUPPORTED_PAGE' ? getMessage('unsupportedPage') : result.error.message);
     } catch {
       setError('The extension runtime is unavailable. Reload the extension and try again.');
@@ -85,6 +89,24 @@ export function Popup() {
   }, []);
 
   const rows = useMemo(() => snapshot ? rowsFor(snapshot, active).filter((row) => row.key.toLowerCase().includes(query.toLowerCase())) : [], [snapshot, active, query]);
+
+  const allowCookieAccess = async () => {
+    if (!snapshot) return;
+    setRequestingCookieAccess(true);
+    setMutationError(undefined);
+    try {
+      const granted = await requestCookieAccess(snapshot.context);
+      if (!granted) {
+        setMutationError(getMessage('cookieAccessDenied'));
+        return;
+      }
+      await refreshSnapshot();
+    } catch {
+      setMutationError(getMessage('cookieAccessDenied'));
+    } finally {
+      setRequestingCookieAccess(false);
+    }
+  };
 
   const chooseTab = (type: ActiveType) => {
     setActive(type);
@@ -264,11 +286,15 @@ export function Popup() {
       </div>
       <div className="storage-toolbar">
         <input className="search" type="search" role="searchbox" placeholder={getMessage('search')} value={query} onChange={(event) => setQuery(event.target.value)} />
-        <button type="button" className="add-button" aria-label={getMessage('addItem')} title={getMessage('addItem')} onClick={openAddEditor}>+</button>
+        <button type="button" className="add-button" aria-label={getMessage('addItem')} title={getMessage('addItem')} disabled={active === 'cookies' && snapshot.cookieAccess === 'required'} onClick={openAddEditor}>+</button>
       </div>
       {mutationError && <p className="mutation-error" role="alert">{mutationError}</p>}
       <section className="data-list" aria-live="polite">
-        {rows.length === 0 ? <p className="empty-state">{getMessage('empty')}</p> : rows.map((row) => (
+        {active === 'cookies' && snapshot.cookieAccess === 'required' ? <div className="permission-state">
+          <strong>{getMessage('cookieAccessTitle')}</strong>
+          <p>{getMessage('cookieAccessDescription')}</p>
+          <button type="button" className="button primary" disabled={requestingCookieAccess} onClick={() => void allowCookieAccess()}>{getMessage('allowCookieAccess')}</button>
+        </div> : rows.length === 0 ? <p className="empty-state">{getMessage('empty')}</p> : rows.map((row) => (
           <article className="data-row" key={row.id}>
             <input type="checkbox" aria-label={`${getMessage('select')} ${row.key}`} checked={selected.has(row.id)} onChange={() => toggleSet(setSelected, row.id)} />
             <div className="data-copy">

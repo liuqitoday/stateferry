@@ -75,6 +75,7 @@ export interface BackupDocument {
 
 export interface CurrentSnapshot {
   context: TabContext;
+  cookieAccess?: 'granted' | 'required';
   cookies: CookieRecord[];
   localStorage: StorageItem[];
   sessionStorage: StorageItem[];

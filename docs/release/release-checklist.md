@@ -2,13 +2,13 @@
 
 ## Automated gates
 
-- [ ] `npm test`
-- [ ] `npm run typecheck`
-- [ ] `npm run build`
-- [ ] `npm run release:audit`
-- [ ] `git diff --check`
-- [ ] `npm run release:package`
-- [ ] Inspect the ZIP and confirm `manifest.json` is at its root.
+- [x] `npm test`
+- [x] `npm run typecheck`
+- [x] `npm run build`
+- [x] `npm run release:audit`
+- [x] `git diff --check`
+- [x] `npm run release:package`
+- [x] Inspect the ZIP and confirm `manifest.json` is at its root.
 
 ## Chrome Web Store dashboard
 
@@ -22,6 +22,6 @@
 
 ## Before submission
 
-- [ ] Test only with fictional local fixture data.
+- [x] Test only with fictional local fixture data.
 - [ ] Remove test profiles, exported backups, and `dist/` from Git history/status.
 - [ ] Verify the GitHub repository contains source and docs, not secrets.

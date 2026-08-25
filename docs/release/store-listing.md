@@ -26,10 +26,10 @@ StateFerry manages and migrates browser storage for the current active tab. All 
 
 - `activeTab`: access the page after the user opens StateFerry.
 - `scripting`: read and write Web Storage in the current tab's page context.
-- `cookies`: read and write Cookies matching the current page URL.
+- `cookies`: read and write Cookies matching the current page URL after the user enables access for that site.
 - `downloads`: save a backup or error report chosen by the user.
 
-No broad `host_permissions` are requested.
+No install-time `host_permissions` are requested. Optional HTTP/HTTPS origins are requested only for the current site when the user explicitly enables Cookie access.
 
 ## Privacy disclosure
 

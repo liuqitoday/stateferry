@@ -32,3 +32,8 @@ export function openMigrationPage(context: TabContext): Promise<RuntimeResponse<
 export function mutateItem(request: MutationRequest): Promise<RuntimeResponse<{ id: string }>> {
   return send({ type: 'MUTATE_ITEM', ...request });
 }
+
+export function requestCookieAccess(context: TabContext): Promise<boolean> {
+  const url = new URL(context.pageUrl);
+  return chrome.permissions.request({ origins: [`${url.protocol}//${url.hostname}/*`] });
+}

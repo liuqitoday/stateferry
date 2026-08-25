@@ -45,6 +45,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .row-actions .danger-action { background: #f8e8e5; color: #a34037; }
 .mutation-error { margin: 8px 0 0; color: #a34037; font-size: 11px; line-height: 1.4; }
 .empty-state { align-self: center; text-align: center; color: #6f7d86; font-size: 12px; }
+.permission-state { align-self: center; display: grid; justify-items: center; gap: 7px; padding: 18px; text-align: center; }
+.permission-state strong { font-size: 13px; }
+.permission-state p { max-width: 300px; margin: 0; color: #6f7d86; font-size: 11px; line-height: 1.5; }
 .action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .button { border: 0; border-radius: 10px; padding: 11px 12px; font-size: 11px; font-weight: 800; }
 .button.primary { background: #0c7c78; color: white; }

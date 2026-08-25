@@ -76,6 +76,11 @@ function sameTarget(expected: TabContext, actual: TabContext): boolean {
   return expected.tabId === actual.tabId && expected.pageUrl === actual.pageUrl && expected.origin === actual.origin;
 }
 
+function siteOriginPattern(pageUrl: string): string {
+  const url = new URL(pageUrl);
+  return `${url.protocol}//${url.hostname}/*`;
+}
+
 async function executeOnTab<T>(tabId: number, func: (...args: never[]) => T, args: unknown[] = []): Promise<T> {
   const results = await chrome.scripting.executeScript({
     target: { tabId },
@@ -93,20 +98,29 @@ async function snapshot(context: TabContext): Promise<RuntimeResponse<CurrentSna
     if (!sameTarget(context, actual)) return responseError(runtimeError('TAB_NAVIGATED', 'The page changed. Refresh and try again.'));
 
     const page = await executeOnTab(context.tabId, readPageStorage);
-    let cookies: CookieRecord[];
-    try {
-      cookies = (await chrome.cookies.getAll({ url: context.pageUrl })) as CookieRecord[];
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Cookie access was denied.';
-      return responseError(runtimeError(
-        message.toLowerCase().includes('permission') ? 'COOKIE_PERMISSION_DENIED' : 'STORAGE_READ_FAILED',
-        message,
-      ));
-    }
     if (!page) return responseError(runtimeError('STORAGE_READ_FAILED', 'The page storage response was empty.'));
     if (!page.localStorage.ok) return responseError(page.localStorage.error);
     if (!page.sessionStorage.ok) return responseError(page.sessionStorage.error);
-    return responseData({ context, cookies, localStorage: page.localStorage.items, sessionStorage: page.sessionStorage.items });
+    const hasCookieAccess = await chrome.permissions.contains({ origins: [siteOriginPattern(context.pageUrl)] });
+    let cookies: CookieRecord[] = [];
+    if (hasCookieAccess) {
+      try {
+        cookies = (await chrome.cookies.getAll({ url: context.pageUrl })) as CookieRecord[];
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Cookie access was denied.';
+        return responseError(runtimeError(
+          message.toLowerCase().includes('permission') ? 'COOKIE_PERMISSION_DENIED' : 'STORAGE_READ_FAILED',
+          message,
+        ));
+      }
+    }
+    return responseData({
+      context,
+      cookieAccess: hasCookieAccess ? 'granted' : 'required',
+      cookies,
+      localStorage: page.localStorage.items,
+      sessionStorage: page.sessionStorage.items,
+    });
   } catch (error) {
     return responseError(runtimeError('STORAGE_READ_FAILED', error instanceof Error ? error.message : 'Unable to read the current page.'));
   }

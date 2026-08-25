@@ -5,6 +5,7 @@
   "version": "0.1.0",
   "default_locale": "en",
   "permissions": ["activeTab", "scripting", "cookies", "downloads"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",

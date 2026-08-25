@@ -79,5 +79,9 @@
   "secure": { "message": "Secure" },
   "httpOnly": { "message": "HttpOnly" },
   "sessionCookie": { "message": "Session cookie" },
-  "expires": { "message": "Expires" }
+  "expires": { "message": "Expires" },
+  "cookieAccessTitle": { "message": "Cookie access is off for this site." },
+  "cookieAccessDescription": { "message": "Allow StateFerry to read and manage cookies only for the current site." },
+  "allowCookieAccess": { "message": "Allow cookie access" },
+  "cookieAccessDenied": { "message": "Cookie access was not granted for this site." }
 }

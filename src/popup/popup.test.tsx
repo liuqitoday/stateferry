@@ -34,6 +34,7 @@ const snapshot: CurrentSnapshot = {
 
 const api = vi.hoisted(() => ({
   getCurrentSnapshot: vi.fn<() => Promise<RuntimeResponse<CurrentSnapshot>>>(),
+  requestCookieAccess: vi.fn().mockResolvedValue(true),
   downloadText: vi.fn().mockResolvedValue({ ok: true, data: { downloadId: 1 } }),
   openMigrationPage: vi.fn().mockResolvedValue({ ok: true, data: { tabId: 8 } }),
   mutateItem: vi.fn().mockResolvedValue({ ok: true, data: { id: 'localStorage:theme' } }),
@@ -44,6 +45,7 @@ vi.mock('../background/runtime-client', () => api);
 describe('Popup', () => {
   beforeEach(() => {
     api.getCurrentSnapshot.mockResolvedValue({ ok: true, data: snapshot });
+    api.requestCookieAccess.mockResolvedValue(true);
     api.downloadText.mockClear();
     api.openMigrationPage.mockClear();
     api.mutateItem.mockClear();
@@ -118,6 +120,21 @@ describe('Popup', () => {
 
     expect(await screen.findByText('This page cannot be accessed by extensions.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Open migration workspace/i })).toBeDisabled();
+  });
+
+  it('requests access only for the current site and refreshes cookies after approval', async () => {
+    const permissionRequired: CurrentSnapshot = { ...snapshot, cookieAccess: 'required', cookies: [] };
+    const permissionGranted: CurrentSnapshot = { ...snapshot, cookieAccess: 'granted' };
+    api.getCurrentSnapshot
+      .mockResolvedValueOnce({ ok: true, data: permissionRequired })
+      .mockResolvedValueOnce({ ok: true, data: permissionGranted });
+    render(<Popup />);
+
+    expect(await screen.findByText('Cookie access is off for this site.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Allow cookie access/i }));
+
+    await waitFor(() => expect(api.requestCookieAccess).toHaveBeenCalledWith(snapshot.context));
+    expect(await screen.findByText('session_token')).toBeInTheDocument();
   });
 
   it('edits an existing local-storage value and refreshes the snapshot', async () => {

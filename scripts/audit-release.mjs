@@ -15,6 +15,7 @@ if (manifest.manifest_version !== 3) fail('manifest_version must be 3');
 if (manifest.default_locale !== 'en') fail('default_locale must be en');
 if (manifest.version !== pkg.version) fail('manifest and package versions differ');
 if (Object.hasOwn(manifest, 'host_permissions')) fail('host_permissions must be absent for current-tab scope');
+if (JSON.stringify(manifest.optional_host_permissions) !== JSON.stringify(['http://*/*', 'https://*/*'])) fail('optional host permissions must support per-site Cookie access');
 for (const permission of ['activeTab', 'scripting', 'cookies', 'downloads']) {
   if (!manifest.permissions?.includes(permission)) fail(`missing permission ${permission}`);
 }

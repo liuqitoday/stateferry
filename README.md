@@ -10,13 +10,17 @@ The images below show the approved product direction with representative data. T
 
 ![StateFerry product overview](docs/images/product-overview.jpg)
 
+The following screenshot is from the real local Chrome fixture test. It contains fictional values only.
+
+![Real Chrome import review](docs/images/migration-real-test.png)
+
 | Popup | Import review | Result report |
 | --- | --- | --- |
 | ![Popup preview](docs/images/popup-preview.jpg) | ![Import review preview](docs/images/migration-preview.jpg) | ![Result report preview](docs/images/report-preview.jpg) |
 
 ## Current Status
 
-The first implementation is complete at the source and automated-test level:
+The release candidate is complete at the source, automated-test, and local Chrome fixture level:
 
 - Current-tab `Cookie`, `localStorage`, and `sessionStorage` snapshotting.
 - Popup with tabs, counts, search, masked values, reveal/copy actions, and export actions.
@@ -27,9 +31,9 @@ The first implementation is complete at the source and automated-test level:
 - Per-item Add / Update / Skip / Error planning and partial-failure reporting.
 - Cookie target mapping and constraint validation for a different environment.
 - English, Simplified Chinese, and Traditional Chinese UI fallback based on browser language.
-- No broad `host_permissions`; the manifest requests `activeTab`, `scripting`, `cookies`, and `downloads`.
+- No install-time `host_permissions`; the manifest requests `activeTab`, `scripting`, `cookies`, and `downloads`, plus optional HTTP/HTTPS origins that are requested only for the current site when Cookie access is enabled.
 
-Automated verification currently covers 55 tests across 11 test files. The release tooling also audits the built manifest, permissions, locale catalogs, icon dimensions, required files, remote-code references, and source maps. A real Chrome load is still required before store submission, especially to verify Cookie API behavior on the target Chrome version because Cookie access can be affected by permission policy.
+Automated verification currently covers 57 tests across 11 test files. The local Chrome fixture verified Cookie authorization, masked reveal, copy, add/edit/delete, export, Merge/Overwrite preview, and import apply. The release tooling also audits the built manifest, permissions, locale catalogs, icon dimensions, required files, remote-code references, and source maps.
 
 ## Features
 
@@ -95,10 +99,10 @@ npm run release:package # build and create release/stateferry-<version>.zip
 | --- | --- |
 | `activeTab` | Temporarily access the page after the user opens the extension. |
 | `scripting` | Read and write page storage in the current tab. |
-| `cookies` | Read and write cookies matching the current page URL. |
+| `cookies` | Read and write cookies matching the current page URL after the user enables access. |
 | `downloads` | Save backup and error-report files chosen by the user. |
 
-StateFerry does not request all-sites access, run in the background on unrelated tabs, upload backups, or load remote scripts/configuration. Backup files can contain login tokens; treat them like passwords and remove them when they are no longer needed.
+StateFerry does not request all-sites access at install time, run in the background on unrelated tabs, upload backups, or load remote scripts/configuration. Chrome may show a per-site permission prompt when Cookie management is first used. Backup files can contain login tokens; treat them like passwords and remove them when they are no longer needed.
 
 Some Chrome versions may require host access for Cookie API calls even when `activeTab` is present. The extension reports `COOKIE_PERMISSION_DENIED` in that case rather than silently widening its permissions.
 

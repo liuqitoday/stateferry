@@ -79,5 +79,9 @@
   "secure": { "message": "仅安全连接" },
   "httpOnly": { "message": "仅 HTTP" },
   "sessionCookie": { "message": "会话 Cookie" },
-  "expires": { "message": "过期时间" }
+  "expires": { "message": "过期时间" },
+  "cookieAccessTitle": { "message": "当前站点尚未开启 Cookie 访问。" },
+  "cookieAccessDescription": { "message": "允许 StateFerry 仅读取和管理当前站点的 Cookie。" },
+  "allowCookieAccess": { "message": "允许访问 Cookie" },
+  "cookieAccessDenied": { "message": "未授予当前站点的 Cookie 访问权限。" }
 }

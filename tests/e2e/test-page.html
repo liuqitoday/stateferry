@@ -6,16 +6,35 @@
     <h1>StateFerry local fixture</h1>
     <p id="status">Fixture ready</p>
     <button id="reset" type="button">Reset fixture</button>
+    <button id="refresh" type="button">Refresh visible state</button>
+    <dl>
+      <dt>Cookie: sf_test_cookie</dt><dd id="cookie-value"></dd>
+      <dt>localStorage: sf_local</dt><dd id="local-value"></dd>
+      <dt>sessionStorage: sf_session</dt><dd id="session-value"></dd>
+      <dt>All localStorage items</dt><dd id="all-local-value"></dd>
+      <dt>All sessionStorage items</dt><dd id="all-session-value"></dd>
+    </dl>
   </main>
   <script>
     const values = { local: 'local-fixture-value', session: 'session-fixture-value' };
+    function refresh() {
+      const cookie = document.cookie.split('; ').find((item) => item.startsWith('sf_test_cookie='));
+      document.getElementById('cookie-value').textContent = cookie?.split('=').slice(1).join('=') || '(missing)';
+      document.getElementById('local-value').textContent = localStorage.getItem('sf_local') || '(missing)';
+      document.getElementById('session-value').textContent = sessionStorage.getItem('sf_session') || '(missing)';
+      document.getElementById('all-local-value').textContent = JSON.stringify(Object.fromEntries(Object.keys(localStorage).sort().map((key) => [key, localStorage.getItem(key)])));
+      document.getElementById('all-session-value').textContent = JSON.stringify(Object.fromEntries(Object.keys(sessionStorage).sort().map((key) => [key, sessionStorage.getItem(key)])));
+    }
     function reset() {
       document.cookie = 'sf_test_cookie=fixture-cookie; Path=/; Max-Age=3600; SameSite=Lax';
       localStorage.setItem('sf_local', values.local);
       sessionStorage.setItem('sf_session', values.session);
       document.getElementById('status').textContent = 'Fixture reset at ' + new Date().toISOString();
+      refresh();
     }
     document.getElementById('reset').addEventListener('click', reset);
+    document.getElementById('refresh').addEventListener('click', refresh);
+    window.addEventListener('focus', refresh);
     reset();
   </script>
 </body>

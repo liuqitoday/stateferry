@@ -28,6 +28,9 @@ function chromeStub() {
       set: vi.fn().mockResolvedValue({ name: 'sid' }),
       remove: vi.fn().mockResolvedValue({ name: 'sid' }),
     },
+    permissions: {
+      contains: vi.fn().mockResolvedValue(true),
+    },
     downloads: {
       download: vi.fn().mockResolvedValue(42),
     },
@@ -111,6 +114,34 @@ describe('service worker runtime', () => {
         sessionStorage: [{ key: 'step', value: '2' }],
       },
     });
+  });
+
+  it('keeps page storage available without host access and does not query cookies', async () => {
+    const stub = chromeStub();
+    stub.permissions.contains.mockResolvedValue(false);
+    stub.scripting.executeScript.mockResolvedValue([
+      {
+        result: {
+          localStorage: { ok: true, items: [{ key: 'theme', value: 'dark' }] },
+          sessionStorage: { ok: true, items: [{ key: 'step', value: '2' }] },
+        },
+      },
+    ]);
+    const { runtime } = await loadRuntime(stub);
+
+    const response = await runtime.handleRuntimeMessage({ type: 'GET_SNAPSHOT' });
+
+    expect(response).toMatchObject({
+      ok: true,
+      data: {
+        cookieAccess: 'required',
+        cookies: [],
+        localStorage: [{ key: 'theme', value: 'dark' }],
+        sessionStorage: [{ key: 'step', value: '2' }],
+      },
+    });
+    expect(stub.permissions.contains).toHaveBeenCalledWith({ origins: ['https://target.example.test/*'] });
+    expect(stub.cookies.getAll).not.toHaveBeenCalled();
   });
 
   it('maps Cookie API read permission failures to COOKIE_PERMISSION_DENIED', async () => {

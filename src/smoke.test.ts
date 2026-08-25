@@ -33,7 +33,7 @@ describe('extension manifest', () => {
     }
   });
 
-  it('declares the current-tab MV3 runtime without broad host permissions', () => {
+  it('declares the current-tab MV3 runtime with site access requested only when needed', () => {
     const manifest = JSON.parse(
       readFileSync(resolve(process.cwd(), 'public/manifest.json'), 'utf8'),
     ) as Record<string, unknown>;
@@ -44,6 +44,7 @@ describe('extension manifest', () => {
       expect.arrayContaining(['activeTab', 'scripting', 'cookies', 'downloads']),
     );
     expect(manifest.host_permissions ?? []).toEqual([]);
+    expect(manifest.optional_host_permissions).toEqual(['http://*/*', 'https://*/*']);
     expect((manifest.action as Record<string, unknown>).default_popup).toBe('popup.html');
     expect((manifest.background as Record<string, unknown>).service_worker).toBe('background.js');
   });

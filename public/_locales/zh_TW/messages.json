@@ -79,5 +79,9 @@
   "secure": { "message": "僅安全連線" },
   "httpOnly": { "message": "僅 HTTP" },
   "sessionCookie": { "message": "工作階段 Cookie" },
-  "expires": { "message": "到期時間" }
+  "expires": { "message": "到期時間" },
+  "cookieAccessTitle": { "message": "目前網站尚未開啟 Cookie 存取。" },
+  "cookieAccessDescription": { "message": "允許 StateFerry 僅讀取和管理目前網站的 Cookie。" },
+  "allowCookieAccess": { "message": "允許存取 Cookie" },
+  "cookieAccessDenied": { "message": "未授予目前網站的 Cookie 存取權限。" }
 }
